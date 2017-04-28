@@ -21,6 +21,8 @@
 
 #include "settings/SettingsToGV.h"
 
+#include "textureProcessing/FlatPicture.h"
+
 namespace cura
 {
     
@@ -115,6 +117,95 @@ void connect(int argc, char **argv)
 
     CommandSocket::instantiate();
     CommandSocket::getInstance()->connect(ip, port);
+}
+
+
+void flat_picture(int argc, char **argv)
+{
+    
+    char* picture_filename;
+    
+    SettingsBase settings;
+    MeshGroup meshgroup(&settings);
+    GCodeExport gcode;
+    
+    std::ofstream output_file;
+    
+    for(int argn = 2; argn < argc; argn++)
+    {
+        char* str = argv[argn];
+        if (str[0] == '-')
+        {
+            for(str++; *str; str++)
+            {
+                switch(*str)
+                {
+                case 'v':
+                    cura::increaseVerboseLevel();
+                    break;
+                case 'p':
+                    cura::enableProgressLogging();
+                    break;
+                case 'j':
+                    argn++;
+                    if (SettingRegistry::getInstance()->loadJSONsettings(argv[argn], &settings))
+                    {
+                        cura::logError("Failed to load json file: %s\n", argv[argn]);
+                        std::exit(1);
+                    }
+                    break;
+                case 'l':
+                    argn++;
+                    picture_filename = argv[argn];
+                    break;
+                case 'o':
+                    argn++;
+                    output_file.open(argv[argn]);
+                    if (!output_file.is_open())
+                    {
+                        cura::logError("Failed to open %s for output.\n", argv[argn]);
+                        exit(1);
+                    }
+                    gcode.setOutputStream(&output_file);
+                    break;
+                case 's':
+                    {
+                        //Parse the given setting and store it.
+                        argn++;
+                        char* valuePtr = strchr(argv[argn], '=');
+                        if (valuePtr)
+                        {
+                            *valuePtr++ = '\0';
+
+                            settings.setSetting(argv[argn], valuePtr);
+                        }
+                    }
+                    break;
+                default:
+                    cura::logError("Unknown option: %c\n", *str);
+                    print_call(argc, argv);
+                    print_usage();
+                    exit(1);
+                    break;
+                }
+            }
+        }
+        else
+        {
+            
+            cura::logError("Unknown option: %s\n", argv[argn]);
+            print_call(argc, argv);
+            print_usage();
+            exit(1);
+        }
+    }
+    
+
+    meshgroup.createExtruderTrain(0);
+    meshgroup.createExtruderTrain(1);
+    
+    FlatPicture flat_picture(picture_filename, meshgroup, gcode);
+    
 }
 
 void slice(int argc, char **argv)
@@ -337,6 +428,10 @@ int main(int argc, char **argv)
     else if (stringcasecompare(argv[1], "slice") == 0)
     {
         slice(argc, argv);
+    }
+    else if (stringcasecompare(argv[1], "flat_picture") == 0)
+    {
+        flat_picture(argc, argv);
     }
     else if (stringcasecompare(argv[1], "help") == 0)
     {

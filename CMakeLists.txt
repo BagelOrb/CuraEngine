@@ -92,6 +92,7 @@ set(engine_SRCS # Except main.cpp.
 
     src/textureProcessing/AreaTextureProcessor.cpp
     src/textureProcessing/FaceNormalStorage.cpp
+    src/textureProcessing/FlatPicture.cpp
     src/textureProcessing/Material.cpp
     src/textureProcessing/MaterialBase.cpp
     src/textureProcessing/TexturedMesh.cpp

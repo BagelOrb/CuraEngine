@@ -344,6 +344,7 @@ double GCodeExport::mm3ToE(double mm3)
     }
     else
     {
+        assert(extruder_attr[current_extruder].filament_area > 0);
         return mm3 / extruder_attr[current_extruder].filament_area;
     }
 }
