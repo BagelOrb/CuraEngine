@@ -29,10 +29,7 @@ public:
     coord_t sample_dist = 400; // lower than 300 can already cause flooding in the firmware!!!
     
     coord_t nominal_extrusion_width = 350;
-    double nominal_speed = 30;
-    
-    double speedup_ratio = 1.4;
-    double slowdown_ratio = 1.3;
+    double nominal_speed = 20;
     
     double max_speed = 150;
     double min_speed = 5;
@@ -45,7 +42,7 @@ public:
     
     double travel_speed = nominal_speed;
     
-    void generateLines(std::vector<std::vector<PointWidth>>& black_lines, std::vector<std::vector<PointWidth>>& white_lines);
+    void generateLines(std::vector<std::vector<PointWidth>>& black_lines);
     /*!
      * 
      * \param starting_direction 1 or 0: whether to start going up the first line and going down the second etc., or going down the first and up the second

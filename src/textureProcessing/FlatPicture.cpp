@@ -5,7 +5,7 @@
 
 namespace cura
 {
-    
+
 FlatPicture::FlatPicture(const char* filename, const MeshGroup& meshgroup, GCodeExport& gcode)
 : gcode(gcode)
 {
@@ -21,10 +21,9 @@ FlatPicture::FlatPicture(const char* filename, const MeshGroup& meshgroup, GCode
     retraction_config.speed = 25;
     retraction_config.zHop = 2000;
     
-    // generate white lines
+    // generate black lines
     std::vector<std::vector<PointWidth>> black_lines;
-    std::vector<std::vector<PointWidth>> white_lines;
-    generateLines(black_lines, white_lines);
+    generateLines(black_lines);
     
     
     Polygons outlines;
@@ -43,23 +42,6 @@ FlatPicture::FlatPicture(const char* filename, const MeshGroup& meshgroup, GCode
         last_brim = last_brim.offset(dense_fill_line_width);
         brim.add(last_brim);
     }
-//     SettingsBase settings;
-//     settings.setSetting("machine_gcode_flavor", "Griffin");
-//     settings.setSetting("machine_use_extruder_offset_to_offset_coords", "true");
-//     settings.setSetting("machine_extruder_count", "2");
-//     settings.setSetting("material_diameter", "2.85");
-//     settings.setSetting("extruder_prime_pos_x", "170");
-//     settings.setSetting("extruder_prime_pos_abs", "true");
-//     settings.setSetting("machine_nozzle_size", "0.4");
-//     settings.setSetting("retraction_prime_speed", "15");
-//     settings.setSetting("machine_width", "233");
-//     settings.setSetting("machine_depth", "215");
-//     settings.setSetting("machine_height", "200");
-//     settings.setSetting("machine_name", "UM3");
-//     settings.setSetting("layer_height", "0.1");
-//     MeshGroup meshgroup(&settings);
-//     meshgroup.getExtruderTrain(1)->setSetting("machine_nozzle_offset_x", "18");
-//     meshgroup.getExtruderTrain(1)->setSetting("machine_nozzle_offset_y", "0");
     gcode.preSetup(&meshgroup);
     
     gcode.writeCode(";START_OF_HEADER");
@@ -98,80 +80,58 @@ FlatPicture::FlatPicture(const char* filename, const MeshGroup& meshgroup, GCode
 //             gcode.writeCode("T0");
 //     gcode.writeCode("M104 T0 S210");
     gcode.writeCode("M109 S210");
-//             gcode.writeMove(Point3(170, 6, 2), 150, 0.0);
     gcode.writePrimeTrain(travel_speed);
-//             gcode.writeCode("G280");
     gcode.resetExtrusionValue();
     gcode.writeRetraction(retraction_config, true);
-//             gcode.writeCode("G92 E0");
-//             gcode.writeCode("G1 F1500 E-6.5");
     gcode.writeCode("");
-    
+
     gcode.setZ(layer_height);
     drawPoly(brim, 20, layer_height, dense_fill_line_width);
-    
+
     for (int layer_nr = 0; layer_nr < 5; layer_nr++)
     {
         gcode.setZ(z);
-        if (layer_nr == 0)
-        {
-        }
-        else
-        {
-	    /*
-            gcode.writeCode("");
-            gcode.writeCode("G1 F1500 E-6.5");
-            gcode.switchExtruder(0, retraction_config);
-//             gcode.writeCode("T0");
-            gcode.writeCode("M109 S210");
-//             gcode.resetExtrusionValue();
-            gcode.writeRetraction(retraction_config, true);
-//             gcode.writeCode("G92 E-6.5");
-            gcode.writeCode("");
-            */
-        }
-    
+
         //gcode.startExtruder(0);
         if (layer_nr < 4)
-	{
+        {
             float speed = (layer_nr == 0)? 20 : normal_speed;
             drawPoly(perimeter, speed, layer_height, dense_fill_line_width);
-	    gcode.writeMove(Point3(offset.X, offset.Y, z), travel_speed, 0.0);
-	    drawDenseFill(layer_height, speed, layer_nr % 2 == 0);
-	    
-	}
-	else if (layer_nr == 4)
+            gcode.writeMove(Point3(offset.X, offset.Y, z), travel_speed, 0.0);
+            drawDenseFill(layer_height, speed, layer_nr % 2 == 0);
+        }
+        else if (layer_nr == 4)
         {
             gcode.writeCode("M104 T1 S0");
-	    gcode.switchExtruder(0, retraction_config);
-	    gcode.writeCode("M109 S210");
-	    { // prime
-		gcode.writePrimeTrain(travel_speed);
-		gcode.resetExtrusionValue();
-	    }
-	    gcode.writeRetraction(retraction_config, true);
+            gcode.switchExtruder(0, retraction_config);
+            gcode.writeCode("M109 S210");
+            { // prime
+                gcode.writePrimeTrain(travel_speed);
+                gcode.resetExtrusionValue();
+            }
+            gcode.writeRetraction(retraction_config, true);
             gcode.writeCode("G1 Z2");
-	    gcode.writeCode("");
-            
+            gcode.writeCode("");
+
             drawPoly(perimeter, nominal_speed, layer_height, dense_fill_line_width);
-	    drawLines(black_lines, layer_height, layer_nr % 2 == 0);
-	}
+            drawLines(black_lines, layer_height, layer_nr % 2 == 0);
+        }
         layer_height = (layer_nr == 0)? 200 : 100; // layer heights: 0.3, 0.2, 0.1, 0.1, 0.1, ...
         z += layer_height;
-        
+
         gcode.writeRetraction(retraction_config, true);
     }
-    
+
     gcode.writeRetraction(retraction_config, true);
     gcode.writeMove(offset + size * 2, travel_speed, 0.0);
-    
+
     gcode.updateTotalPrintTime();
     long print_time = gcode.getTotalPrintTime();
     log("Print time: %d\n", print_time);
     log("Print time (readable): %dh %dm %ds\n", print_time / 60 / 60, (print_time / 60) % 60, print_time % 60);
 }
 
-void FlatPicture::generateLines(std::vector< std::vector< FlatPicture::PointWidth > >& black_lines, std::vector< std::vector< FlatPicture::PointWidth > >& white_lines)
+void FlatPicture::generateLines(std::vector<std::vector<FlatPicture::PointWidth>>& black_lines)
 {
     assert(black_lines.empty());
     for (coord_t x = nominal_extrusion_width; x < size.X - nominal_extrusion_width / 2; x += line_dist)
@@ -184,26 +144,6 @@ void FlatPicture::generateLines(std::vector< std::vector< FlatPicture::PointWidt
             line.push_back(PointWidth{Point(x, y), width});
         }
     }
-    /*
-    assert(white_lines.empty());
-    for (unsigned int line_idx = 0; line_idx < black_lines.size() - 1; line_idx++)
-    {
-        const std::vector<PointWidth>& prev_white_line = black_lines[line_idx];
-        const std::vector<PointWidth>& next_white_line = black_lines[line_idx + 1];
-        white_lines.emplace_back();
-        std::vector<PointWidth>& black_line = white_lines.back();
-        assert(prev_white_line.size() == next_white_line.size());
-        for (unsigned int point_idx = 0; point_idx < prev_white_line.size(); point_idx++)
-        {
-            const PointWidth& prev_point = prev_white_line[point_idx];
-            const PointWidth& next_point = next_white_line[point_idx];
-            PointWidth pw;
-            pw.width = (prev_point.width + next_point.width) / 2;
-            pw.location = (prev_point.location + Point(prev_point.width / 2, 0) + next_point.location - Point(next_point.width / 2, 0)) / 2;
-            black_line.push_back(pw);
-        }
-    }
-    */
 }
 
 
@@ -236,25 +176,25 @@ void FlatPicture::drawLines(const std::vector< std::vector< FlatPicture::PointWi
             const PointWidth& next = line[point_idx];
             
             coord_t width = std::max(coord_t(1), (prev.width + next.width) / 2);
-            double speed = nominal_speed * nominal_extrusion_width / width;
-            if (speed > nominal_speed)
-            {
-                speed = nominal_speed + (speed - nominal_speed) * speedup_ratio;
+            coord_t extrusion_width;
+            if (width > layer_height)
+            { // model line as flat square with rounded sides cross section
+                extrusion_width = width - layer_height * (1.0 - 0.25 * M_PI); // h * (1/4 pi - 1)
             }
             else
-            {
-                speed = nominal_speed + (speed - nominal_speed) * slowdown_ratio;
+            { // model line as circular cross section
+                extrusion_width = width * width / layer_height * (0.25 * M_PI); // 1/4 pi w^2 / h
             }
+            double speed = nominal_speed * nominal_extrusion_width / extrusion_width;
             speed = std::min(speed, max_speed);
             
-            double extrusion_mm3_per_mm = flow * INT2MM(width) * INT2MM(layer_height);
+            double extrusion_mm3_per_mm = flow * INT2MM(extrusion_width) * INT2MM(layer_height);
             log("generating point with width %f and speed %f\n", INT2MM(width), speed);
             
             gcode.writeMove(offset + ((transposed)? Point(next.location.Y, next.location.X) : next.location), speed, extrusion_mm3_per_mm);
             
             prev = next;
         }
-        
     }
 }
 
@@ -263,18 +203,15 @@ void FlatPicture::drawDenseFill(coord_t layer_height, float speed, bool transpos
     bool swap = false;
     for (coord_t x = nominal_extrusion_width / 2; x < size.X - nominal_extrusion_width / 2 + 10; x += dense_fill_line_width)
     {
-	
         coord_t y_min = 0;
-	coord_t y_max = size.Y;
-	Point start = (transposed)? Point(y_min, x) : Point(x, y_min);
-	Point end = (transposed)? Point(y_max, x) : Point(x, y_max);
+        coord_t y_max = size.Y;
+        Point start = (transposed)? Point(y_min, x) : Point(x, y_min);
+        Point end = (transposed)? Point(y_max, x) : Point(x, y_max);
         if (swap) std::swap(start, end);
-	gcode.writeMove(offset + start, travel_speed, 0.0);
-	double extrusion_mm3_per_mm = INT2MM(dense_fill_line_width) * INT2MM(layer_height);
-	gcode.writeMove(offset + end, speed, extrusion_mm3_per_mm);
+        gcode.writeMove(offset + start, travel_speed, 0.0);
+        double extrusion_mm3_per_mm = INT2MM(dense_fill_line_width) * INT2MM(layer_height);
+        gcode.writeMove(offset + end, speed, extrusion_mm3_per_mm);
         swap = !swap;
-	
-	
     }
 
 }
@@ -312,7 +249,6 @@ void FlatPicture::drawPoly(Polygons& polys, float speed, coord_t layer_height, c
             gcode.writeMove(offset + p, speed, extrusion_mm3_per_mm);
         }
     }
-    
 }
 
 
